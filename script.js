@@ -149,14 +149,25 @@ function deriveStatus(po2, ndl, tankFill) {
   if (!state.diveActive) {
     return { text: '待命', level: 'normal' };
   }
+
+  const modWorking = calculateMOD(1.4);
+  const modAbsolute = calculateMOD(1.6);
+
+  if (state.depth > modAbsolute) {
+    return { text: 'MOD ALERT', level: 'mod-alert' };
+  }
+
   if (Math.abs(state.verticalSpeed) >= SPEED_DANGER_THRESHOLD) {
     return { text: 'SLOW DOWN', level: 'alert' };
   }
+  if (state.depth > modWorking) {
+    return { text: 'PO₂ HIGH / 接近 MOD', level: 'warning' };
+  }
   if (po2 >= 1.6) {
-    return { text: 'PO₂ 危險', level: 'danger' };
+    return { text: 'PO₂ DANGER', level: 'danger' };
   }
   if (po2 >= 1.4) {
-    return { text: 'PO₂ 偏高', level: 'warning' };
+    return { text: 'PO₂ ELEVATED', level: 'warning' };
   }
   if (tankFill <= 0.1) {
     return { text: '氣體剩餘極低', level: 'danger' };
@@ -165,19 +176,28 @@ function deriveStatus(po2, ndl, tankFill) {
     return { text: '氣體不足', level: 'warning' };
   }
   if (ndl <= 0) {
-    return { text: 'DECO NEEDED', level: 'danger' };
+    return { text: 'DECO NEEDED / 需進入減壓', level: 'deco-needed' };
   }
   if (ndl <= 3) {
-    return { text: '無減壓極限不足', level: 'danger' };
+    return { text: 'LOW NDL / 無減壓極限不足', level: 'low-ndl' };
   }
   if (ndl <= 10) {
-    return { text: '接近無減壓極限', level: 'warning' };
+    return { text: 'NDL NEAR LIMIT / 接近無減壓極限', level: 'warning' };
   }
   return { text: '下潛中', level: 'normal' };
 }
 
 function getAmbientPressure(depth) {
   return SURFACE_PRESSURE + depth / WATER_DENSITY_DIVISOR;
+}
+
+function calculateMOD(limit) {
+  const fo2 = getFO2();
+  if (fo2 <= 0) {
+    return Infinity;
+  }
+  const ambientLimit = limit / fo2;
+  return Math.max(0, (ambientLimit - SURFACE_PRESSURE) * WATER_DENSITY_DIVISOR);
 }
 
 function updateCompartments(dtSeconds) {
