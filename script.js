@@ -33,6 +33,7 @@ const ui = {
   currentDepth: document.getElementById('current-depth'),
   diveTime: document.getElementById('dive-time'),
   ndl: document.getElementById('ndl'),
+  ndlUnit: document.getElementById('ndl-unit'),
   tts: document.getElementById('tts'),
   avgDepth: document.getElementById('avg-depth'),
   maxDepth: document.getElementById('max-depth'),
@@ -72,6 +73,9 @@ const state = {
   maxDepth: 0,
   diveActive: false,
   safetyStopTimer: 0,
+  safetyStopRequired: false,
+  safetyStopActive: false,
+  safetyStopCompleted: false,
   initialGasVolume: 0,
   remainingGasVolume: 0,
   tankPressure: 0,
@@ -121,13 +125,29 @@ function updateUI() {
 
   const ndl = calculateNDL();
   const decoPlan = ndl <= 0 ? calculateDecoStop() : null;
-  if (decoPlan) {
+  ui.ndl.classList.remove('ndl--safety');
+  ui.ndl.classList.remove('ndl--deco');
+  const ndlUnit = ui.ndlUnit;
+
+  if (state.safetyStopRequired && !state.safetyStopCompleted) {
+    const remainingSeconds = Math.max(0, Math.ceil(state.safetyStopTimer));
+    ui.ndl.textContent = `${remainingSeconds}`;
+    if (ndlUnit) {
+      ndlUnit.textContent = ' 秒';
+    }
+    ui.ndl.classList.add('ndl--safety');
+  } else if (decoPlan) {
     const stopMinutes = decoPlan.duration / 60;
     ui.ndl.textContent = `DECO STOP ${decoPlan.depth.toFixed(0)}m / ${stopMinutes.toFixed(1)}`;
+    if (ndlUnit) {
+      ndlUnit.textContent = '';
+    }
     ui.ndl.classList.add('ndl--deco');
   } else {
     ui.ndl.textContent = Number.isFinite(ndl) ? ndl.toFixed(0) : '∞';
-    ui.ndl.classList.remove('ndl--deco');
+    if (ndlUnit) {
+      ndlUnit.textContent = ' 分鐘';
+    }
   }
   ui.tts.textContent = calculateTTS().toFixed(1);
 
@@ -148,6 +168,14 @@ function updateUI() {
 function deriveStatus(po2, ndl, tankFill) {
   if (!state.diveActive) {
     return { text: '待命', level: 'normal' };
+  }
+
+  if (state.safetyStopRequired && !state.safetyStopCompleted) {
+    return { text: 'Safety Stop', level: 'warning' };
+  }
+
+  if (state.safetyStopCompleted) {
+    return { text: 'Safety Done', level: 'normal' };
   }
 
   const modWorking = calculateMOD(1.4);
@@ -382,6 +410,50 @@ function updateDepth(dtSeconds) {
   state.lastDepth = state.depth;
 }
 
+function updateSafetyStop(dtSeconds) {
+  if (!state.diveActive) {
+    state.safetyStopRequired = false;
+    state.safetyStopActive = false;
+    state.safetyStopCompleted = false;
+    state.safetyStopTimer = 0;
+    return;
+  }
+
+  const hasSufficientDiveTime = state.diveTime >= 600;
+  state.safetyStopRequired = hasSufficientDiveTime || state.safetyStopCompleted;
+
+  if (!hasSufficientDiveTime) {
+    state.safetyStopActive = false;
+    state.safetyStopCompleted = false;
+    state.safetyStopTimer = 0;
+    return;
+  }
+
+  if (!state.safetyStopCompleted && state.safetyStopTimer <= 0) {
+    state.safetyStopTimer = SAFETY_STOP_DURATION;
+  }
+
+  if (state.safetyStopCompleted) {
+    state.safetyStopActive = false;
+    state.safetyStopTimer = 0;
+    return;
+  }
+
+  const withinStopZone = state.depth >= 3 && state.depth <= SAFETY_STOP_DEPTH + 1;
+
+  if (withinStopZone) {
+    state.safetyStopActive = true;
+    state.safetyStopTimer = Math.max(0, state.safetyStopTimer - dtSeconds);
+    if (state.safetyStopTimer <= 0) {
+      state.safetyStopCompleted = true;
+      state.safetyStopActive = false;
+      state.safetyStopTimer = 0;
+    }
+  } else {
+    state.safetyStopActive = false;
+  }
+}
+
 function tick() {
   const timeScale = Number(controls.timeScale.value);
   const dtSeconds = timeScale;
@@ -390,6 +462,7 @@ function tick() {
   updateAverages(dtSeconds);
   updateCompartments(dtSeconds);
   updateGas(dtSeconds);
+  updateSafetyStop(dtSeconds);
   updateUI();
 
   handleGasLock();
@@ -422,6 +495,9 @@ function reset() {
   state.maxDepth = 0;
   state.diveActive = false;
   state.safetyStopTimer = 0;
+  state.safetyStopRequired = false;
+  state.safetyStopActive = false;
+  state.safetyStopCompleted = false;
   state.lastDepth = 0;
   state.verticalSpeed = 0;
   resetGasLock();

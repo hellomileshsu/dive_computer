@@ -83,6 +83,11 @@ body {
   font-weight: 700;
 }
 
+.ndl--safety {
+  color: #ffcc66;
+  font-weight: 700;
+}
+
 .computer__tile--wide {
   grid-column: span 3;
 }
