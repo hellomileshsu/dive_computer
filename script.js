@@ -29,6 +29,8 @@ const compartments = [
   { halfTime: 635, a: 0.2523, b: 0.9653, pressure: 0 }
 ];
 
+const depthChartCanvas = document.getElementById('depth-chart');
+
 const ui = {
   currentDepth: document.getElementById('current-depth'),
   diveTime: document.getElementById('dive-time'),
@@ -46,7 +48,9 @@ const ui = {
   workloadValue: document.getElementById('workload-value'),
   verticalSpeed: document.getElementById('vertical-speed'),
   speedIndicator: document.getElementById('speed-indicator'),
-  waterTemp: document.getElementById('water-temp-display')
+  waterTemp: document.getElementById('water-temp-display'),
+  depthChartCanvas,
+  depthChartCtx: depthChartCanvas ? depthChartCanvas.getContext('2d') : null
 };
 
 const controls = {
@@ -82,7 +86,10 @@ const state = {
   tankPressure: 0,
   lockGasSettings: false,
   lastDepth: 0,
-  verticalSpeed: 0
+  verticalSpeed: 0,
+  depthHistory: [],
+  maxHistorySeconds: 300,
+  maxHistoryPoints: 600
 };
 
 function initializeCompartments() {
@@ -167,6 +174,8 @@ function updateUI() {
   const status = deriveStatus(po2, ndl, tankFill);
   ui.statusText.textContent = status.text;
   ui.statusText.className = `status-${status.level}`;
+
+  renderDepthChart();
 }
 
 function deriveStatus(po2, ndl, tankFill) {
@@ -217,6 +226,177 @@ function deriveStatus(po2, ndl, tankFill) {
     return { text: 'NDL NEAR LIMIT / 接近無減壓極限', level: 'warning' };
   }
   return { text: '下潛中', level: 'normal' };
+}
+
+function renderDepthChart() {
+  const canvas = ui.depthChartCanvas;
+  const ctx = ui.depthChartCtx;
+  if (!canvas || !ctx) {
+    return;
+  }
+
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (width === 0 || height === 0) {
+    return;
+  }
+
+  const dpr = window.devicePixelRatio || 1;
+  const displayWidth = Math.round(width * dpr);
+  const displayHeight = Math.round(height * dpr);
+  if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const styles = getComputedStyle(document.documentElement);
+  const readVar = (name, fallback) => {
+    const value = styles.getPropertyValue(name);
+    return value ? value.trim() || fallback : fallback;
+  };
+
+  const gradientStart = readVar('--chart-gradient-start', '#1a2b3a');
+  const gradientEnd = readVar('--chart-gradient-end', '#0c141d');
+  const gridColor = readVar('--chart-grid', 'rgba(255, 255, 255, 0.06)');
+  const lineColor = readVar('--chart-line', '#26c6da');
+  const fillColor = readVar('--chart-fill', 'rgba(38, 198, 218, 0.22)');
+  const markerColor = readVar('--chart-marker', '#ffcc66');
+  const placeholderColor = readVar('--chart-placeholder', '#6f8399');
+
+  ctx.clearRect(0, 0, width, height);
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, gradientStart);
+  gradient.addColorStop(1, gradientEnd);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const padding = 12;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+  if (chartWidth <= 0 || chartHeight <= 0) {
+    return;
+  }
+
+  const history = state.depthHistory;
+  if (!history.length) {
+    ctx.fillStyle = placeholderColor;
+    ctx.font = '600 14px "Segoe UI", Tahoma, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('等待深度資料', width / 2, height / 2);
+    return;
+  }
+
+  let minTime = history[0].time;
+  let maxTime = history[history.length - 1].time;
+  if (minTime === maxTime) {
+    minTime = Math.max(0, minTime - 60);
+  }
+
+  let maxDepthValue = 0;
+  let minDepthValue = Infinity;
+  history.forEach((point) => {
+    maxDepthValue = Math.max(maxDepthValue, point.depth);
+    minDepthValue = Math.min(minDepthValue, point.depth);
+  });
+  if (!Number.isFinite(minDepthValue)) {
+    minDepthValue = 0;
+  }
+
+  const depthPadding = Math.max(1, maxDepthValue * 0.1);
+  const maxDepth = Math.max(5, maxDepthValue + depthPadding);
+  const minDepth = Math.max(0, Math.min(minDepthValue, 0));
+  const depthRange = Math.max(1, maxDepth - minDepth);
+  const timeRange = Math.max(1, maxTime - minTime);
+
+  const getX = (time) => padding + ((time - minTime) / timeRange) * chartWidth;
+  const getY = (depth) => padding + ((depth - minDepth) / depthRange) * chartHeight;
+  const surfaceY = getY(minDepth);
+
+  ctx.save();
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.4;
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i += 1) {
+    const y = padding + (chartHeight / gridSteps) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(padding + chartWidth, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = fillColor;
+  ctx.beginPath();
+  ctx.moveTo(padding, surfaceY);
+  history.forEach((point, index) => {
+    const x = getX(point.time);
+    if (index === 0) {
+      ctx.lineTo(x, surfaceY);
+    }
+    ctx.lineTo(x, getY(point.depth));
+  });
+  ctx.lineTo(getX(history[history.length - 1].time), surfaceY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  history.forEach((point, index) => {
+    const x = getX(point.time);
+    const y = getY(point.depth);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+  ctx.restore();
+
+  const currentPoint = history[history.length - 1];
+  const currentX = getX(currentPoint.time);
+  const currentY = getY(currentPoint.depth);
+
+  ctx.save();
+  ctx.strokeStyle = markerColor;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(padding, currentY);
+  ctx.lineTo(padding + chartWidth, currentY);
+  ctx.stroke();
+  ctx.restore();
+
+  const deepestPoint = history.reduce((maxPoint, point) => (point.depth > maxPoint.depth ? point : maxPoint), history[0]);
+  const deepestX = getX(deepestPoint.time);
+  const deepestY = getY(deepestPoint.depth);
+
+  ctx.save();
+  ctx.fillStyle = markerColor;
+  ctx.beginPath();
+  ctx.arc(currentX, currentY, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#0b1118';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (deepestPoint.depth > currentPoint.depth + 0.5) {
+    ctx.beginPath();
+    ctx.arc(deepestX, deepestY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function getAmbientPressure(depth) {
@@ -393,6 +573,27 @@ function updateAverages(dtSeconds) {
   }
 }
 
+function recordDepthHistory() {
+  const history = state.depthHistory;
+  if (!history) {
+    return;
+  }
+
+  const time = state.elapsedTime;
+  history.push({ time, depth: state.depth });
+
+  const maxSeconds = Number.isFinite(state.maxHistorySeconds) ? state.maxHistorySeconds : 300;
+  const cutoff = Math.max(0, time - maxSeconds);
+  while (history.length && history[0].time < cutoff) {
+    history.shift();
+  }
+
+  const maxPoints = Number.isFinite(state.maxHistoryPoints) ? state.maxHistoryPoints : 600;
+  if (history.length > maxPoints) {
+    history.splice(0, history.length - maxPoints);
+  }
+}
+
 function updateDepth(dtSeconds) {
   const previousDepth = state.lastDepth;
   const target = state.targetDepth;
@@ -464,6 +665,7 @@ function tick() {
 
   updateDepth(dtSeconds);
   updateAverages(dtSeconds);
+  recordDepthHistory();
   updateCompartments(dtSeconds);
   updateGas(dtSeconds);
   updateSafetyStop(dtSeconds);
@@ -504,6 +706,7 @@ function reset() {
   state.safetyStopCompleted = false;
   state.lastDepth = 0;
   state.verticalSpeed = 0;
+  state.depthHistory.length = 0;
   resetGasLock();
   clampGradientFactors();
   calculateTankVolumes();
@@ -603,6 +806,10 @@ controls.sac.addEventListener('change', () => {
 });
 
 controls.reset.addEventListener('click', reset);
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', renderDepthChart);
+}
 
 calculateTankVolumes();
 initializeCompartments();
