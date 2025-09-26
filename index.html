@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dive Computer Simulator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <h1>Dive Computer Simulator</h1>
+      <p class="app__subtitle">Real-time dive computer metrics driven by adjustable environment and diver parameters.</p>
+    </header>
+    <main class="app__main">
+      <section class="computer" aria-label="Dive computer display">
+        <div class="computer__screen">
+          <div class="computer__row">
+            <div class="computer__tile">
+              <h2>Depth</h2>
+              <p><span id="current-depth">0.0</span> m</p>
+            </div>
+            <div class="computer__tile">
+              <h2>Dive Time</h2>
+              <p><span id="dive-time">00:00</span></p>
+            </div>
+            <div class="computer__tile">
+              <h2>NDL</h2>
+              <p><span id="ndl">--</span> min</p>
+            </div>
+          </div>
+          <div class="computer__row">
+            <div class="computer__tile">
+              <h2>TTS</h2>
+              <p><span id="tts">--</span> min</p>
+            </div>
+            <div class="computer__tile">
+              <h2>Avg / Max</h2>
+              <p><span id="avg-depth">0.0</span> m / <span id="max-depth">0.0</span> m</p>
+            </div>
+            <div class="computer__tile">
+              <h2>PO<sub>2</sub></h2>
+              <p><span id="po2">0.21</span> bar</p>
+            </div>
+          </div>
+          <div class="computer__row">
+            <div class="computer__tile computer__tile--wide">
+              <h2>Tank</h2>
+              <div class="tank">
+                <div class="tank__bar" id="tank-bar"><div class="tank__bar-fill" id="tank-bar-fill"></div></div>
+                <div class="tank__metrics">
+                  <p>Pressure: <span id="tank-pressure">0</span> bar</p>
+                  <p>Gas Remaining: <span id="gas-remaining">0</span> L</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="computer__row">
+            <div class="computer__tile computer__tile--wide">
+              <h2>Status</h2>
+              <p id="status-text">Standby</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="controls" aria-label="Simulation controls">
+        <form id="controls-form">
+          <fieldset>
+            <legend>Environment</legend>
+            <label for="target-depth">Target Depth (m)</label>
+            <input type="range" id="target-depth" min="0" max="60" step="0.5" value="5" />
+            <div class="controls__value" id="target-depth-value">5.0 m</div>
+
+            <label for="rate">Ascent/Descent Rate (m/min)</label>
+            <input type="number" id="rate" min="1" max="30" value="10" />
+
+            <label for="water-temp">Water Temperature (°C)</label>
+            <input type="number" id="water-temp" min="-2" max="35" value="26" />
+          </fieldset>
+
+          <fieldset id="gas-settings">
+            <legend>Gas &amp; Cylinder (locked once dive starts)</legend>
+            <label for="cylinder-size">Cylinder Size (L)</label>
+            <select id="cylinder-size">
+              <option value="10">10 L Steel</option>
+              <option value="11.1">11.1 L AL80</option>
+              <option value="12" selected>12 L Steel</option>
+              <option value="15">15 L Steel</option>
+            </select>
+
+            <label for="fill-pressure">Fill Pressure (bar)</label>
+            <input type="number" id="fill-pressure" min="50" max="300" value="200" />
+
+            <label for="o2">O<sub>2</sub> Fraction (%)</label>
+            <input type="number" id="o2" min="21" max="40" value="21" />
+          </fieldset>
+
+          <fieldset>
+            <legend>Diver</legend>
+            <label for="sac">Surface SAC (L/min)</label>
+            <input type="number" id="sac" min="5" max="35" value="18" />
+
+            <label for="workload">Workload Multiplier</label>
+            <input type="range" id="workload" min="0.5" max="3" step="0.1" value="1.0" />
+            <div class="controls__value" id="workload-value">1.0×</div>
+
+            <label for="gf-low">Gradient Factor Low</label>
+            <input type="number" id="gf-low" min="10" max="99" value="30" />
+
+            <label for="gf-high">Gradient Factor High</label>
+            <input type="number" id="gf-high" min="10" max="99" value="85" />
+          </fieldset>
+
+          <fieldset>
+            <legend>Simulation</legend>
+            <div class="controls__buttons">
+              <button type="button" id="play">Play</button>
+              <button type="button" id="pause">Pause</button>
+              <button type="button" id="reset">Reset</button>
+            </div>
+            <label for="time-scale">Time Scale</label>
+            <select id="time-scale">
+              <option value="1" selected>1×</option>
+              <option value="5">5×</option>
+            </select>
+          </fieldset>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
