@@ -78,6 +78,11 @@ body {
   margin: 0;
 }
 
+.ndl--deco {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
 .computer__tile--wide {
   grid-column: span 3;
 }
