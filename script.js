@@ -87,9 +87,7 @@ const state = {
   lockGasSettings: false,
   lastDepth: 0,
   verticalSpeed: 0,
-  depthHistory: [],
-  maxHistorySeconds: 300,
-  maxHistoryPoints: 600
+  depthHistory: []
 };
 
 function initializeCompartments() {
@@ -581,17 +579,6 @@ function recordDepthHistory() {
 
   const time = state.elapsedTime;
   history.push({ time, depth: state.depth });
-
-  const maxSeconds = Number.isFinite(state.maxHistorySeconds) ? state.maxHistorySeconds : 300;
-  const cutoff = Math.max(0, time - maxSeconds);
-  while (history.length && history[0].time < cutoff) {
-    history.shift();
-  }
-
-  const maxPoints = Number.isFinite(state.maxHistoryPoints) ? state.maxHistoryPoints : 600;
-  if (history.length > maxPoints) {
-    history.splice(0, history.length - maxPoints);
-  }
 }
 
 function updateDepth(dtSeconds) {
