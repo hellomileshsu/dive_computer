@@ -4,6 +4,7 @@ const BASE_TICK_MS = 1000;
 const DIVE_START_THRESHOLD = 5; // m
 const SAFETY_STOP_DEPTH = 5;
 const SAFETY_STOP_DURATION = 180; // seconds
+const DECO_STOP_STEP = 3; // meters between deco stops
 const WATER_VAPOR_PRESSURE = 0; // simplified model
 
 const compartments = [
@@ -111,7 +112,15 @@ function updateUI() {
   ui.maxDepth.textContent = state.maxDepth.toFixed(1);
 
   const ndl = calculateNDL();
-  ui.ndl.textContent = Number.isFinite(ndl) ? ndl.toFixed(0) : '∞';
+  const decoPlan = ndl <= 0 ? calculateDecoStop() : null;
+  if (decoPlan) {
+    const stopMinutes = decoPlan.duration / 60;
+    ui.ndl.textContent = `DECO STOP ${decoPlan.depth.toFixed(0)}m / ${stopMinutes.toFixed(1)}`;
+    ui.ndl.classList.add('ndl--deco');
+  } else {
+    ui.ndl.textContent = Number.isFinite(ndl) ? ndl.toFixed(0) : '∞';
+    ui.ndl.classList.remove('ndl--deco');
+  }
   ui.tts.textContent = calculateTTS().toFixed(1);
 
   const po2 = getFO2() * getAmbientPressure(state.depth);
@@ -144,6 +153,9 @@ function deriveStatus(po2, ndl, tankFill) {
   if (tankFill <= 0.25) {
     return { text: '氣體不足', level: 'warning' };
   }
+  if (ndl <= 0) {
+    return { text: 'DECO NEEDED', level: 'danger' };
+  }
   if (ndl <= 3) {
     return { text: '無減壓極限不足', level: 'danger' };
   }
@@ -168,13 +180,17 @@ function updateCompartments(dtSeconds) {
   });
 }
 
-function getGradientFactor() {
+function getGradientFactorForDepth(depth) {
   const gfLow = Math.max(0.1, Math.min(0.99, Number(controls.gfLow.value) / 100));
   const gfHigh = Math.max(gfLow, Math.min(0.99, Number(controls.gfHigh.value) / 100));
-  const blendDepth = Math.min(state.depth, 30);
+  const blendDepth = Math.min(depth, 30);
   const t = Math.max(0, Math.min(1, 1 - blendDepth / 30));
   const gf = gfLow + (gfHigh - gfLow) * t;
   return Math.max(0.1, Math.min(0.99, gf));
+}
+
+function getGradientFactor() {
+  return getGradientFactorForDepth(state.depth);
 }
 
 function calculateNDL() {
@@ -217,6 +233,66 @@ function calculateNDL() {
   });
 
   return ndlMinutes;
+}
+
+function getAllowedTissuePressure(compartment, depth, gf) {
+  const ambient = getAmbientPressure(depth);
+  const mValue = ambient / compartment.b + compartment.a;
+  return ambient + (mValue - ambient) * gf;
+}
+
+function calculateDecoStop() {
+  if (!state.diveActive) return null;
+
+  const fn2 = getFN2();
+  const maxDepth = Math.max(DECO_STOP_STEP, Math.ceil(state.depth / DECO_STOP_STEP) * DECO_STOP_STEP);
+
+  let stopDepth = null;
+
+  for (let depth = 0; depth <= maxDepth; depth += DECO_STOP_STEP) {
+    const gf = getGradientFactorForDepth(depth);
+    const safe = compartments.every((comp) => comp.pressure <= getAllowedTissuePressure(comp, depth, gf) + 1e-6);
+    if (safe) {
+      stopDepth = depth;
+      break;
+    }
+  }
+
+  if (stopDepth === null || stopDepth <= 0) {
+    return null;
+  }
+
+  const nextTargetDepth = Math.max(0, stopDepth - DECO_STOP_STEP);
+  const ambientStop = getAmbientPressure(stopDepth);
+  const inspiredStop = Math.max(0, (ambientStop - WATER_VAPOR_PRESSURE) * fn2);
+  const gfNext = getGradientFactorForDepth(nextTargetDepth);
+
+  let requiredSeconds = 0;
+
+  compartments.forEach((comp) => {
+    const allowedNext = getAllowedTissuePressure(comp, nextTargetDepth, gfNext);
+    if (comp.pressure <= allowedNext) {
+      return;
+    }
+
+    const rateConstant = Math.log(2) / comp.halfTime; // per minute
+    const denominator = comp.pressure - inspiredStop;
+    const numerator = allowedNext - inspiredStop;
+
+    if (denominator <= 0 || numerator <= 0 || numerator >= denominator) {
+      return;
+    }
+
+    const timeMinutes = -Math.log(numerator / denominator) / rateConstant;
+    if (Number.isFinite(timeMinutes) && timeMinutes > 0) {
+      requiredSeconds = Math.max(requiredSeconds, timeMinutes * 60);
+    }
+  });
+
+  return {
+    depth: stopDepth,
+    duration: Math.max(0, Math.ceil(requiredSeconds))
+  };
 }
 
 function calculateTTS() {
