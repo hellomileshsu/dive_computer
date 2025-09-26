@@ -176,6 +176,18 @@ input[type="range"] {
   text-align: right;
 }
 
+.controls__note {
+  margin: -0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #9fb2c8;
+  line-height: 1.4;
+}
+
+.controls__note--warning {
+  color: #ffb74d;
+  font-weight: 600;
+}
+
 .controls__buttons {
   display: flex;
   gap: 0.75rem;

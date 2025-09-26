@@ -52,8 +52,6 @@ const controls = {
   workload: document.getElementById('workload'),
   gfLow: document.getElementById('gf-low'),
   gfHigh: document.getElementById('gf-high'),
-  play: document.getElementById('play'),
-  pause: document.getElementById('pause'),
   reset: document.getElementById('reset'),
   timeScale: document.getElementById('time-scale'),
   gasSettings: document.getElementById('gas-settings')
@@ -66,7 +64,6 @@ const state = {
   diveTime: 0,
   avgDepth: 0,
   maxDepth: 0,
-  isPlaying: false,
   diveActive: false,
   safetyStopTimer: 0,
   initialGasVolume: 0,
@@ -133,27 +130,27 @@ function updateUI() {
 
 function deriveStatus(po2, ndl, tankFill) {
   if (!state.diveActive) {
-    return { text: 'Standby', level: 'normal' };
+    return { text: '待命', level: 'normal' };
   }
   if (po2 >= 1.6) {
-    return { text: 'PO₂ Critical', level: 'danger' };
+    return { text: 'PO₂ 危險', level: 'danger' };
   }
   if (po2 >= 1.4) {
-    return { text: 'PO₂ High', level: 'warning' };
+    return { text: 'PO₂ 偏高', level: 'warning' };
   }
   if (tankFill <= 0.1) {
-    return { text: 'Reserve Gas', level: 'danger' };
+    return { text: '氣體剩餘極低', level: 'danger' };
   }
   if (tankFill <= 0.25) {
-    return { text: 'Low Gas', level: 'warning' };
+    return { text: '氣體不足', level: 'warning' };
   }
   if (ndl <= 3) {
-    return { text: 'NDL Critical', level: 'danger' };
+    return { text: '無減壓極限不足', level: 'danger' };
   }
   if (ndl <= 10) {
-    return { text: 'Approaching NDL', level: 'warning' };
+    return { text: '接近無減壓極限', level: 'warning' };
   }
-  return { text: 'Diving', level: 'normal' };
+  return { text: '下潛中', level: 'normal' };
 }
 
 function getAmbientPressure(depth) {
@@ -273,9 +270,7 @@ function updateDepth(dtSeconds) {
   }
 }
 
-let tickHandle = null;
 function tick() {
-  if (!state.isPlaying) return;
   const timeScale = Number(controls.timeScale.value);
   const dtSeconds = timeScale;
 
@@ -304,24 +299,11 @@ function resetGasLock() {
   controls.o2.disabled = false;
 }
 
-function play() {
-  if (state.isPlaying) return;
-  state.isPlaying = true;
-  tickHandle = setInterval(tick, BASE_TICK_MS);
-}
-
-function pause() {
-  state.isPlaying = false;
-  if (tickHandle) {
-    clearInterval(tickHandle);
-    tickHandle = null;
-  }
-}
-
 function reset() {
-  pause();
   state.depth = 0;
-  state.targetDepth = Number(controls.targetDepth.value);
+  controls.targetDepth.value = 0;
+  updateTargetDepthLabel();
+  state.targetDepth = 0;
   state.elapsedTime = 0;
   state.diveTime = 0;
   state.avgDepth = 0;
@@ -337,7 +319,7 @@ function reset() {
 
 function updateTargetDepthLabel() {
   state.targetDepth = Number(controls.targetDepth.value);
-  ui.targetDepthValue.textContent = `${state.targetDepth.toFixed(1)} m`;
+  ui.targetDepthValue.textContent = `${state.targetDepth.toFixed(1)} 公尺`;
 }
 
 function updateWorkloadLabel() {
@@ -391,15 +373,7 @@ controls.sac.addEventListener('change', () => {
   controls.sac.value = Math.max(5, Math.min(35, Number(controls.sac.value)));
 });
 
-controls.play.addEventListener('click', play);
-controls.pause.addEventListener('click', pause);
 controls.reset.addEventListener('click', reset);
-
-controls.timeScale.addEventListener('change', () => {
-  if (!state.isPlaying) return;
-  pause();
-  play();
-});
 
 calculateTankVolumes();
 initializeCompartments();
@@ -407,3 +381,4 @@ updateTargetDepthLabel();
 updateWorkloadLabel();
 clampGradientFactors();
 updateUI();
+setInterval(tick, BASE_TICK_MS);
