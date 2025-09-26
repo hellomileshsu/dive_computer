@@ -6,6 +6,9 @@ const SAFETY_STOP_DEPTH = 5;
 const SAFETY_STOP_DURATION = 180; // seconds
 const DECO_STOP_STEP = 3; // meters between deco stops
 const WATER_VAPOR_PRESSURE = 0; // simplified model
+const SPEED_LAYER_THRESHOLDS = [0.05, 0.15, 0.25];
+const SPEED_CAUTION_THRESHOLD = 0.2;
+const SPEED_DANGER_THRESHOLD = 0.3;
 
 const compartments = [
   { halfTime: 5, a: 1.1696, b: 0.5578, pressure: 0 },
@@ -39,7 +42,9 @@ const ui = {
   tankBarFill: document.getElementById('tank-bar-fill'),
   statusText: document.getElementById('status-text'),
   targetDepthValue: document.getElementById('target-depth-value'),
-  workloadValue: document.getElementById('workload-value')
+  workloadValue: document.getElementById('workload-value'),
+  verticalSpeed: document.getElementById('vertical-speed'),
+  speedIndicator: document.getElementById('speed-indicator')
 };
 
 const controls = {
@@ -70,7 +75,9 @@ const state = {
   initialGasVolume: 0,
   remainingGasVolume: 0,
   tankPressure: 0,
-  lockGasSettings: false
+  lockGasSettings: false,
+  lastDepth: 0,
+  verticalSpeed: 0
 };
 
 function initializeCompartments() {
@@ -110,6 +117,7 @@ function updateUI() {
   ui.diveTime.textContent = formatTime(state.diveTime);
   ui.avgDepth.textContent = state.avgDepth.toFixed(1);
   ui.maxDepth.textContent = state.maxDepth.toFixed(1);
+  updateSpeedIndicator();
 
   const ndl = calculateNDL();
   const decoPlan = ndl <= 0 ? calculateDecoStop() : null;
@@ -140,6 +148,9 @@ function updateUI() {
 function deriveStatus(po2, ndl, tankFill) {
   if (!state.diveActive) {
     return { text: '待命', level: 'normal' };
+  }
+  if (Math.abs(state.verticalSpeed) >= SPEED_DANGER_THRESHOLD) {
+    return { text: 'SLOW DOWN', level: 'alert' };
   }
   if (po2 >= 1.6) {
     return { text: 'PO₂ 危險', level: 'danger' };
@@ -331,6 +342,7 @@ function updateAverages(dtSeconds) {
 }
 
 function updateDepth(dtSeconds) {
+  const previousDepth = state.lastDepth;
   const target = state.targetDepth;
   const ratePerSecond = Math.max(0.1, Number(controls.rate.value) / 60);
   const difference = target - state.depth;
@@ -344,6 +356,10 @@ function updateDepth(dtSeconds) {
   if (state.depth < 0.01) {
     state.depth = 0;
   }
+
+  const delta = state.depth - previousDepth;
+  state.verticalSpeed = Number.isFinite(delta / dtSeconds) ? delta / dtSeconds : 0;
+  state.lastDepth = state.depth;
 }
 
 function tick() {
@@ -386,11 +402,48 @@ function reset() {
   state.maxDepth = 0;
   state.diveActive = false;
   state.safetyStopTimer = 0;
+  state.lastDepth = 0;
+  state.verticalSpeed = 0;
   resetGasLock();
   clampGradientFactors();
   calculateTankVolumes();
   initializeCompartments();
   updateUI();
+}
+
+function updateSpeedIndicator() {
+  if (!ui.speedIndicator || !ui.verticalSpeed) return;
+  const speed = state.verticalSpeed;
+  const magnitude = Math.abs(speed);
+  ui.verticalSpeed.textContent = speed.toFixed(2);
+
+  const classesToRemove = ['speed-indicator--up', 'speed-indicator--down', 'speed-indicator--calm'];
+  ui.speedIndicator.classList.remove(...classesToRemove);
+
+  if (magnitude < SPEED_LAYER_THRESHOLDS[0]) {
+    ui.speedIndicator.classList.add('speed-indicator--calm');
+  } else if (speed < 0) {
+    ui.speedIndicator.classList.add('speed-indicator--up');
+  } else {
+    ui.speedIndicator.classList.add('speed-indicator--down');
+  }
+
+  let color = '#4db6ac';
+  if (magnitude >= SPEED_DANGER_THRESHOLD) {
+    color = '#ef5350';
+  } else if (magnitude >= SPEED_CAUTION_THRESHOLD) {
+    color = '#ffb74d';
+  }
+  ui.speedIndicator.style.setProperty('--speed-color', color);
+
+  const layers = ui.speedIndicator.querySelectorAll('.speed-indicator__layer');
+  layers.forEach((layer, index) => {
+    if (magnitude >= SPEED_LAYER_THRESHOLDS[index]) {
+      layer.classList.add('is-active');
+    } else {
+      layer.classList.remove('is-active');
+    }
+  });
 }
 
 function updateTargetDepthLabel() {
