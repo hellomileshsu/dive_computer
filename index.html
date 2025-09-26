@@ -1,42 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dive Computer Simulator</title>
+  <title>潛水電腦模擬器</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app">
     <header class="app__header">
-      <h1>Dive Computer Simulator</h1>
-      <p class="app__subtitle">Real-time dive computer metrics driven by adjustable environment and diver parameters.</p>
+      <h1>潛水電腦模擬器</h1>
+      <p class="app__subtitle">依據環境與潛水員參數即時更新潛水電腦數據，協助規劃與演練潛水。</p>
     </header>
     <main class="app__main">
-      <section class="computer" aria-label="Dive computer display">
+      <section class="computer" aria-label="潛水電腦顯示">
         <div class="computer__screen">
           <div class="computer__row">
             <div class="computer__tile">
-              <h2>Depth</h2>
-              <p><span id="current-depth">0.0</span> m</p>
+              <h2>目前深度</h2>
+              <p><span id="current-depth">0.0</span> 公尺</p>
             </div>
             <div class="computer__tile">
-              <h2>Dive Time</h2>
+              <h2>潛水時間</h2>
               <p><span id="dive-time">00:00</span></p>
             </div>
             <div class="computer__tile">
-              <h2>NDL</h2>
-              <p><span id="ndl">--</span> min</p>
+              <h2>無減壓極限</h2>
+              <p><span id="ndl">--</span> 分鐘</p>
             </div>
           </div>
           <div class="computer__row">
             <div class="computer__tile">
-              <h2>TTS</h2>
-              <p><span id="tts">--</span> min</p>
+              <h2>上升所需時間</h2>
+              <p><span id="tts">--</span> 分鐘</p>
             </div>
             <div class="computer__tile">
-              <h2>Avg / Max</h2>
-              <p><span id="avg-depth">0.0</span> m / <span id="max-depth">0.0</span> m</p>
+              <h2>平均 / 最大深度</h2>
+              <p><span id="avg-depth">0.0</span> 公尺 / <span id="max-depth">0.0</span> 公尺</p>
             </div>
             <div class="computer__tile">
               <h2>PO<sub>2</sub></h2>
@@ -45,84 +45,91 @@
           </div>
           <div class="computer__row">
             <div class="computer__tile computer__tile--wide">
-              <h2>Tank</h2>
+              <h2>氣瓶</h2>
               <div class="tank">
                 <div class="tank__bar" id="tank-bar"><div class="tank__bar-fill" id="tank-bar-fill"></div></div>
                 <div class="tank__metrics">
-                  <p>Pressure: <span id="tank-pressure">0</span> bar</p>
-                  <p>Gas Remaining: <span id="gas-remaining">0</span> L</p>
+                  <p>壓力：<span id="tank-pressure">0</span> bar</p>
+                  <p>剩餘氣量：<span id="gas-remaining">0</span> L</p>
                 </div>
               </div>
             </div>
           </div>
           <div class="computer__row">
             <div class="computer__tile computer__tile--wide">
-              <h2>Status</h2>
-              <p id="status-text">Standby</p>
+              <h2>狀態</h2>
+              <p id="status-text">待命</p>
             </div>
           </div>
         </div>
       </section>
-      <section class="controls" aria-label="Simulation controls">
+      <section class="controls" aria-label="模擬控制面板">
         <form id="controls-form">
           <fieldset>
-            <legend>Environment</legend>
-            <label for="target-depth">Target Depth (m)</label>
+            <legend>環境設定</legend>
+            <label for="target-depth">目標深度 (公尺)</label>
             <input type="range" id="target-depth" min="0" max="60" step="0.5" value="5" />
-            <div class="controls__value" id="target-depth-value">5.0 m</div>
+            <div class="controls__value" id="target-depth-value">5.0 公尺</div>
+            <p class="controls__note">立即生效：滑桿位置代表目前深度，系統會依照設定速率趨近該深度。</p>
 
-            <label for="rate">Ascent/Descent Rate (m/min)</label>
+            <label for="rate">上 / 下潛速率 (公尺 / 分鐘)</label>
             <input type="number" id="rate" min="1" max="30" value="10" />
+            <p class="controls__note">立即生效：變更後下一秒的深度變化速率即更新。</p>
 
-            <label for="water-temp">Water Temperature (°C)</label>
+            <label for="water-temp">水溫 (°C)</label>
             <input type="number" id="water-temp" min="-2" max="35" value="26" />
+            <p class="controls__note">立即生效：僅影響資訊顯示，不鎖定。</p>
           </fieldset>
 
           <fieldset id="gas-settings">
-            <legend>Gas &amp; Cylinder (locked once dive starts)</legend>
-            <label for="cylinder-size">Cylinder Size (L)</label>
+            <legend>氣體與氣瓶（入水後鎖定）</legend>
+            <p class="controls__note controls__note--warning">提醒：深度超過 5 公尺視為入水，以下設定將鎖定，水下無法更改。</p>
+            <label for="cylinder-size">氣瓶容量 (L)</label>
             <select id="cylinder-size">
-              <option value="10">10 L Steel</option>
-              <option value="11.1">11.1 L AL80</option>
-              <option value="12" selected>12 L Steel</option>
-              <option value="15">15 L Steel</option>
+              <option value="10">10 公升鋼瓶</option>
+              <option value="11.1">11.1 公升 AL80</option>
+              <option value="12" selected>12 公升鋼瓶</option>
+              <option value="15">15 公升鋼瓶</option>
             </select>
 
-            <label for="fill-pressure">Fill Pressure (bar)</label>
+            <label for="fill-pressure">充填壓力 (bar)</label>
             <input type="number" id="fill-pressure" min="50" max="300" value="200" />
 
-            <label for="o2">O<sub>2</sub> Fraction (%)</label>
+            <label for="o2">氧氣比例 (%)</label>
             <input type="number" id="o2" min="21" max="40" value="21" />
           </fieldset>
 
           <fieldset>
-            <legend>Diver</legend>
-            <label for="sac">Surface SAC (L/min)</label>
+            <legend>潛水員</legend>
+            <label for="sac">水面空氣消耗率 (L/分鐘)</label>
             <input type="number" id="sac" min="5" max="35" value="18" />
+            <p class="controls__note">立即生效：影響之後的氣體消耗計算。</p>
 
-            <label for="workload">Workload Multiplier</label>
+            <label for="workload">工作負荷倍率</label>
             <input type="range" id="workload" min="0.5" max="3" step="0.1" value="1.0" />
             <div class="controls__value" id="workload-value">1.0×</div>
+            <p class="controls__note">立即生效：滑桿越高代表活動量越大，氣耗同步增加。</p>
 
-            <label for="gf-low">Gradient Factor Low</label>
+            <label for="gf-low">減壓係數低值</label>
             <input type="number" id="gf-low" min="10" max="99" value="30" />
 
-            <label for="gf-high">Gradient Factor High</label>
+            <label for="gf-high">減壓係數高值</label>
             <input type="number" id="gf-high" min="10" max="99" value="85" />
+            <p class="controls__note">立即生效：調整後立刻套用於無減壓計算。</p>
           </fieldset>
 
           <fieldset>
-            <legend>Simulation</legend>
+            <legend>模擬控制</legend>
+            <p class="controls__note">重設會將深度帶回水面並解鎖氣體設定，其餘調整維持即時。</p>
             <div class="controls__buttons">
-              <button type="button" id="play">Play</button>
-              <button type="button" id="pause">Pause</button>
-              <button type="button" id="reset">Reset</button>
+              <button type="button" id="reset">重設至水面</button>
             </div>
-            <label for="time-scale">Time Scale</label>
+            <label for="time-scale">時間倍率</label>
             <select id="time-scale">
-              <option value="1" selected>1×</option>
-              <option value="5">5×</option>
+              <option value="1" selected>1×（真實速度）</option>
+              <option value="5">5×（加速演練）</option>
             </select>
+            <p class="controls__note">立即生效：改變後下一次更新就會使用新的模擬速度。</p>
           </fieldset>
         </form>
       </section>
