@@ -45,7 +45,8 @@ const ui = {
   targetDepthValue: document.getElementById('target-depth-value'),
   workloadValue: document.getElementById('workload-value'),
   verticalSpeed: document.getElementById('vertical-speed'),
-  speedIndicator: document.getElementById('speed-indicator')
+  speedIndicator: document.getElementById('speed-indicator'),
+  waterTemp: document.getElementById('water-temp-display')
 };
 
 const controls = {
@@ -121,6 +122,9 @@ function updateUI() {
   ui.diveTime.textContent = formatTime(state.diveTime);
   ui.avgDepth.textContent = state.avgDepth.toFixed(1);
   ui.maxDepth.textContent = state.maxDepth.toFixed(1);
+  if (ui.waterTemp) {
+    ui.waterTemp.textContent = controls.waterTemp.value;
+  }
   updateSpeedIndicator();
 
   const ndl = calculateNDL();

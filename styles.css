@@ -53,7 +53,7 @@ body {
 
 .computer__row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
 }
 
@@ -89,7 +89,7 @@ body {
 }
 
 .computer__tile--wide {
-  grid-column: span 3;
+  grid-column: 1 / -1;
 }
 
 .tank {
