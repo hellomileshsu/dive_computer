@@ -235,6 +235,69 @@ button:disabled {
   color: #ef5350;
 }
 
+.status-alert {
+  color: #ff7043;
+  font-weight: 700;
+}
+
+.speed-indicator {
+  --speed-color: #4db6ac;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.5rem 0;
+}
+
+.speed-indicator__arrows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 90px;
+}
+
+.speed-indicator__layer {
+  width: 0;
+  height: 0;
+  border-left: 22px solid transparent;
+  border-right: 22px solid transparent;
+  opacity: 0.2;
+  transform: scale(0.95);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.speed-indicator__layer.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.speed-indicator--down .speed-indicator__layer {
+  border-bottom: 32px solid var(--speed-color);
+  border-top: 0;
+}
+
+.speed-indicator--up .speed-indicator__layer {
+  border-top: 32px solid var(--speed-color);
+  border-bottom: 0;
+}
+
+.speed-indicator--calm .speed-indicator__layer {
+  border-top: 0;
+  border-bottom: 0;
+  opacity: 0.15;
+}
+
+.speed-indicator__value {
+  font-size: 1.4rem;
+  color: #d0e0f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.speed-indicator__value span {
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .app__main {
     grid-template-columns: 1fr;
