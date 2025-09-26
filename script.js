@@ -35,6 +35,8 @@ const ui = {
   currentDepth: document.getElementById('current-depth'),
   diveTime: document.getElementById('dive-time'),
   ndl: document.getElementById('ndl'),
+  ndlContainer: document.getElementById('ndl-display'),
+  ndlLabel: document.getElementById('ndl-label'),
   ndlUnit: document.getElementById('ndl-unit'),
   tts: document.getElementById('tts'),
   avgDepth: document.getElementById('avg-depth'),
@@ -134,28 +136,49 @@ function updateUI() {
 
   const ndl = calculateNDL();
   const decoPlan = ndl <= 0 ? calculateDecoStop() : null;
-  ui.ndl.classList.remove('ndl--safety');
-  ui.ndl.classList.remove('ndl--deco');
   const ndlUnit = ui.ndlUnit;
+  const ndlLabel = ui.ndlLabel;
+  const ndlContainer = ui.ndlContainer;
+
+  if (ndlContainer) {
+    ndlContainer.classList.remove('ndl--safety-pause', 'ndl--safety-active', 'ndl--deco');
+  }
+  if (ndlLabel) {
+    ndlLabel.textContent = '無減壓極限';
+  }
+  if (ndlUnit) {
+    ndlUnit.textContent = ' 分鐘';
+  }
 
   if (state.safetyStopRequired && !state.safetyStopCompleted) {
     const remainingSeconds = Math.max(0, Math.ceil(state.safetyStopTimer));
-    ui.ndl.textContent = `${remainingSeconds}`;
-    if (ndlUnit) {
-      ndlUnit.textContent = ' 秒';
-    }
-    ui.ndl.classList.add('ndl--safety');
-  } else if (decoPlan) {
-    const stopMinutes = decoPlan.duration / 60;
-    ui.ndl.textContent = `DECO STOP ${decoPlan.depth.toFixed(0)}m / ${stopMinutes.toFixed(1)}`;
+    ui.ndl.textContent = formatTime(remainingSeconds);
     if (ndlUnit) {
       ndlUnit.textContent = '';
     }
-    ui.ndl.classList.add('ndl--deco');
-  } else {
-    ui.ndl.textContent = Number.isFinite(ndl) ? ndl.toFixed(0) : '∞';
+    if (ndlLabel) {
+      ndlLabel.textContent = state.safetyStopActive ? 'Safety Stop' : 'Safety Pause';
+    }
+    if (ndlContainer) {
+      ndlContainer.classList.add(state.safetyStopActive ? 'ndl--safety-active' : 'ndl--safety-pause');
+    }
+  } else if (decoPlan) {
+    if (ndlLabel) {
+      ndlLabel.textContent = '減壓停留';
+    }
+    const stopMinutes = decoPlan.duration / 60;
+    ui.ndl.textContent = `${decoPlan.depth.toFixed(0)} 公尺`;
     if (ndlUnit) {
-      ndlUnit.textContent = ' 分鐘';
+      ndlUnit.textContent = ` · ${stopMinutes.toFixed(1)} 分鐘`;
+    }
+    if (ndlContainer) {
+      ndlContainer.classList.add('ndl--deco');
+    }
+  } else {
+    const ndlValue = Number.isFinite(ndl) ? ndl.toFixed(0) : '∞';
+    ui.ndl.textContent = ndlValue;
+    if (ndlUnit) {
+      ndlUnit.textContent = Number.isFinite(ndl) ? ' 分鐘' : '';
     }
   }
   ui.tts.textContent = calculateTTS().toFixed(1);
