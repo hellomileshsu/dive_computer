@@ -3,6 +3,13 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #10141a;
   color: #f4f7fa;
+  --chart-gradient-start: #1a2b3a;
+  --chart-gradient-end: #0c141d;
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-line: #26c6da;
+  --chart-fill: rgba(38, 198, 218, 0.22);
+  --chart-marker: #ffcc66;
+  --chart-placeholder: #6f8399;
 }
 
 body {
@@ -65,6 +72,13 @@ body {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
+.computer__tile--chart {
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .computer__tile h2 {
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -76,6 +90,37 @@ body {
 .computer__tile p {
   font-size: 1.6rem;
   margin: 0;
+}
+
+.computer__chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+p.computer__chart-description,
+.computer__chart-header h2 {
+  margin-bottom: 0;
+}
+
+p.computer__chart-description {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9fb2c8;
+}
+
+#depth-chart {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--chart-gradient-start), var(--chart-gradient-end));
+  display: block;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .ndl--deco {
@@ -329,6 +374,10 @@ button:disabled {
 
   .computer__tile--wide {
     grid-column: span 1;
+  }
+
+  .computer__tile--chart {
+    height: 200px;
   }
 
   .tank {
